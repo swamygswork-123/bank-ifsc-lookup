@@ -1,69 +1,247 @@
-import Image from "next/image";
+import { Metadata } from "next";
+import SearchBox from "@/components/SearchBox";
+import PopularBanks from "@/components/PopularBanks";
+import FAQSection from "@/components/FAQSection";
+import AdBanner from "@/components/AdBanner";
+import StructuredData from "@/components/StructuredData";
+import { getPopularBanks, getTotalStats } from "@/lib/db";
+import {
+  SITE_NAME,
+  SITE_DESCRIPTION,
+  SITE_TAGLINE,
+  FAQ_ITEMS,
+  ADSENSE_SLOT_INCONTENT,
+} from "@/lib/constants";
+import {
+  generateFAQSchema,
+  generateWebSiteSchema,
+} from "@/lib/utils";
+import {
+  Search,
+  Database,
+  Zap,
+  Shield,
+  MapPin,
+  CreditCard,
+  Smartphone,
+} from "lucide-react";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: `IFSC Code Search - Find Any Bank IFSC Code Instantly | ${SITE_NAME}`,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+};
+
+export default function HomePage() {
+  const popularBanks = getPopularBanks();
+  const stats = getTotalStats();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <>
+      <StructuredData data={generateWebSiteSchema()} />
+      <StructuredData data={generateFAQSchema(FAQ_ITEMS)} />
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4">
+              Find Any Bank&apos;s{" "}
+              <span className="text-blue-200">IFSC Code</span> Instantly
+            </h1>
+            <p className="text-lg md:text-xl text-blue-100 max-w-2xl mx-auto">
+              {SITE_TAGLINE}. Search from{" "}
+              <strong>{stats.totalBranches.toLocaleString()}+</strong> bank
+              branches across India.
+            </p>
+          </div>
+
+          <SearchBox size="large" autoFocus />
+
+          <div className="flex flex-wrap justify-center gap-6 mt-8 text-sm text-blue-200">
+            <span className="flex items-center gap-1.5">
+              <Search className="h-4 w-4" /> Search by IFSC Code
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4" /> Search by Branch / City
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CreditCard className="h-4 w-4" /> Get MICR Code
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Smartphone className="h-4 w-4" /> Check UPI Support
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Bar */}
+      <section className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl md:text-3xl font-bold text-blue-600">
+                {stats.totalBranches.toLocaleString()}+
+              </p>
+              <p className="text-sm text-gray-600">Bank Branches</p>
+            </div>
+            <div>
+              <p className="text-2xl md:text-3xl font-bold text-blue-600">
+                {stats.totalBanks.toLocaleString()}+
+              </p>
+              <p className="text-sm text-gray-600">Banks Covered</p>
+            </div>
+            <div>
+              <p className="text-2xl md:text-3xl font-bold text-blue-600">
+                {stats.totalStates}
+              </p>
+              <p className="text-sm text-gray-600">States &amp; UTs</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+        {/* Popular Banks */}
+        <PopularBanks banks={popularBanks} />
+
+        {/* Ad Banner */}
+        <AdBanner slot={ADSENSE_SLOT_INCONTENT} format="horizontal" />
+
+        {/* Features Section */}
+        <section>
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
+            Why Use {SITE_NAME}?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
+              <div className="bg-blue-50 text-blue-600 p-3 rounded-xl inline-block mb-4">
+                <Database className="h-7 w-7" />
+              </div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Comprehensive Database
+              </h3>
+              <p className="text-sm text-gray-600">
+                Access IFSC codes for {stats.totalBranches.toLocaleString()}+
+                bank branches across {stats.totalBanks.toLocaleString()} banks
+                in India, sourced directly from RBI data.
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
+              <div className="bg-green-50 text-green-600 p-3 rounded-xl inline-block mb-4">
+                <Zap className="h-7 w-7" />
+              </div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Instant Results
+              </h3>
+              <p className="text-sm text-gray-600">
+                Get instant search results with auto-suggestions. Find any IFSC
+                code in seconds by bank name, branch, city, or IFSC code.
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
+              <div className="bg-purple-50 text-purple-600 p-3 rounded-xl inline-block mb-4">
+                <Shield className="h-7 w-7" />
+              </div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Verified &amp; Updated
+              </h3>
+              <p className="text-sm text-gray-600">
+                All data is verified and regularly updated to reflect the latest
+                bank mergers, new branches, and RBI changes.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section className="bg-white rounded-2xl p-8 md:p-12 border border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
+            How to Find IFSC Code
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">
+                1
+              </div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Enter Details
+              </h3>
+              <p className="text-sm text-gray-600">
+                Type your bank name, branch name, city, or IFSC code in the
+                search box above.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">
+                2
+              </div>
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Select Branch
+              </h3>
+              <p className="text-sm text-gray-600">
+                Pick the correct branch from the search results or use our bank
+                directory to browse.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">
+                3
+              </div>
+              <h3 className="font-semibold text-gray-800 mb-2">Get Details</h3>
+              <p className="text-sm text-gray-600">
+                View complete branch details including IFSC, MICR, address, and
+                NEFT/RTGS/IMPS support.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Ad Banner */}
+        <AdBanner slot={ADSENSE_SLOT_INCONTENT} format="horizontal" />
+
+        {/* FAQ Section */}
+        <FAQSection faqs={FAQ_ITEMS} />
+
+        {/* SEO Content Section */}
+        <section className="bg-white rounded-2xl p-8 md:p-12 border border-gray-200 prose prose-gray max-w-none">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            IFSC Code - Complete Guide
+          </h2>
+          <p className="text-gray-600 leading-relaxed">
+            IFSC (Indian Financial System Code) is an alphanumeric code that
+            uniquely identifies a bank branch participating in the two main
+            electronic funds settlement systems in India: the Real Time Gross
+            Settlement (RTGS) and the National Electronic Funds Transfer (NEFT).
+            The code is assigned by the Reserve Bank of India (RBI) and consists
+            of 11 characters.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          <h3 className="text-lg font-semibold text-gray-800 mt-6 mb-2">
+            Structure of IFSC Code
+          </h3>
+          <p className="text-gray-600 leading-relaxed">
+            The IFSC code has a standardized format: the first four alphabetic
+            characters represent the bank (e.g., SBIN for State Bank of India,
+            HDFC for HDFC Bank), the fifth character is always 0 (reserved for
+            future use), and the last six characters (numeric or alphabetic)
+            uniquely identify the branch. For example, SBIN0001234 identifies a
+            specific branch of State Bank of India.
+          </p>
+          <h3 className="text-lg font-semibold text-gray-800 mt-6 mb-2">
+            When Do You Need an IFSC Code?
+          </h3>
+          <p className="text-gray-600 leading-relaxed">
+            You need an IFSC code for any electronic fund transfer in India,
+            including NEFT transfers, RTGS transfers for high-value transactions,
+            IMPS for instant mobile payments, and UPI transactions. The IFSC code
+            ensures your money reaches the correct bank branch. You can find the
+            IFSC code on your cheque book, bank passbook, or by searching on{" "}
+            {SITE_NAME}.
+          </p>
+        </section>
+      </div>
+    </>
   );
 }
