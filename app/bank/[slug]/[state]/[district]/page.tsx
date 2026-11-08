@@ -25,10 +25,10 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug, state, district } = await params;
-  const bankName = getBankBySlug(slug);
+  const bankName = await getBankBySlug(slug);
   if (!bankName) return { title: "Not Found" };
-  const stateName = getStateNameFromSlug(bankName, state);
-  const districtName = getDistrictNameFromSlug(bankName, state, district);
+  const stateName = await getStateNameFromSlug(bankName, state);
+  const districtName = await getDistrictNameFromSlug(bankName, state, district);
   if (!stateName || !districtName) return { title: "Not Found" };
 
   const formatted = formatBankName(bankName);
@@ -45,14 +45,14 @@ export default async function BankDistrictPage({
   params: Promise<Params>;
 }) {
   const { slug, state, district } = await params;
-  const bankName = getBankBySlug(slug);
+  const bankName = await getBankBySlug(slug);
   if (!bankName) notFound();
-  const stateName = getStateNameFromSlug(bankName, state);
-  const districtName = getDistrictNameFromSlug(bankName, state, district);
+  const stateName = await getStateNameFromSlug(bankName, state);
+  const districtName = await getDistrictNameFromSlug(bankName, state, district);
   if (!stateName || !districtName) notFound();
 
   const formatted = formatBankName(bankName);
-  const branches = getBranchesForBankStateDistrict(bankName, state, district);
+  const branches = await getBranchesForBankStateDistrict(bankName, state, district);
 
   const breadcrumbItems = [
     { label: "Banks", href: "/bank" },

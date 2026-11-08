@@ -1,16 +1,45 @@
-import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 
-let db: Database.Database | null = null;
+/* eslint-disable @typescript-eslint/no-explicit-any */
+let db: any = null;
+let dbPromise: Promise<any> | null = null;
 
-export function getDb(): Database.Database {
-  if (!db) {
-    const dbPath = path.join(process.cwd(), "data", "ifsc.db");
-    db = new Database(dbPath, { readonly: true });
-    db.pragma("journal_mode = WAL");
-    db.pragma("cache_size = -64000"); // 64MB cache
+async function getDb(): Promise<any> {
+  if (db) return db;
+
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      const dbPath = path.join(process.cwd(), "data", "ifsc.db");
+      if (!fs.existsSync(dbPath)) {
+        throw new Error(`Database not found at ${dbPath}. Run: node scripts/seed.mjs`);
+      }
+      const initSqlJs = (await import("sql.js/dist/sql-asm.js")).default;
+      const SQL = await initSqlJs();
+      const buffer = fs.readFileSync(dbPath);
+      db = new SQL.Database(buffer);
+      return db;
+    })();
   }
-  return db;
+
+  return dbPromise;
+}
+
+async function query(sql: string, params: unknown[] = []): Promise<Record<string, unknown>[]> {
+  const database = await getDb();
+  const stmt = database.prepare(sql);
+  stmt.bind(params as (string | number | null)[]);
+  const results: Record<string, unknown>[] = [];
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as Record<string, unknown>);
+  }
+  stmt.free();
+  return results;
+}
+
+async function querySingle(sql: string, params: unknown[] = []): Promise<Record<string, unknown> | null> {
+  const results = await query(sql, params);
+  return results.length > 0 ? results[0] : null;
 }
 
 export interface BankBranch {
@@ -32,206 +61,122 @@ export interface BankBranch {
   swift: string;
 }
 
-export function searchByIFSC(code: string): BankBranch | null {
-  const db = getDb();
-  const stmt = db.prepare("SELECT * FROM branches WHERE ifsc = ? LIMIT 1");
-  return (stmt.get(code.toUpperCase()) as BankBranch) || null;
+export async function searchByIFSC(code: string): Promise<BankBranch | null> {
+  const row = await querySingle("SELECT * FROM branches WHERE ifsc = ? LIMIT 1", [code.toUpperCase()]);
+  return (row as unknown as BankBranch) || null;
 }
 
-export function searchBranches(
-  query: string,
+export async function searchBranches(
+  q: string,
   limit = 20,
   offset = 0
-): { results: BankBranch[]; total: number } {
-  const db = getDb();
-  const searchTerm = `%${query}%`;
-  const countStmt = db.prepare(
-    "SELECT COUNT(*) as total FROM branches WHERE ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ?"
-  );
-  const { total } = countStmt.get(
-    searchTerm,
-    searchTerm,
-    searchTerm,
-    searchTerm,
-    searchTerm
-  ) as { total: number };
+): Promise<{ results: BankBranch[]; total: number }> {
+  const searchTerm = `%${q}%`;
+  const params = [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm];
 
-  const stmt = db.prepare(
-    "SELECT * FROM branches WHERE ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ? ORDER BY bank, state, district LIMIT ? OFFSET ?"
+  const countRow = await querySingle(
+    "SELECT COUNT(*) as total FROM branches WHERE ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ?",
+    params
   );
-  const results = stmt.all(
-    searchTerm,
-    searchTerm,
-    searchTerm,
-    searchTerm,
-    searchTerm,
-    limit,
-    offset
-  ) as BankBranch[];
+  const total = (countRow?.total as number) || 0;
 
-  return { results, total };
+  const results = await query(
+    "SELECT * FROM branches WHERE ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ? ORDER BY bank, state, district LIMIT ? OFFSET ?",
+    [...params, limit, offset]
+  );
+
+  return { results: results as unknown as BankBranch[], total };
 }
 
-export function getAllBanks(): { bank: string; slug: string; count: number }[] {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT bank, COUNT(*) as count FROM branches GROUP BY bank ORDER BY bank"
-  );
-  const rows = stmt.all() as { bank: string; count: number }[];
-
-  // Deduplicate slugs by appending a suffix for collisions
+export async function getAllBanks(): Promise<{ bank: string; slug: string; count: number }[]> {
+  const rows = await query("SELECT bank, COUNT(*) as count FROM branches GROUP BY bank ORDER BY bank");
   const slugCount: Record<string, number> = {};
   return rows.map((r) => {
-    let slug = bankToSlug(r.bank);
+    let slug = bankToSlug(r.bank as string);
     if (slugCount[slug] !== undefined) {
       slugCount[slug]++;
       slug = `${slug}-${slugCount[slug]}`;
     } else {
       slugCount[slug] = 0;
     }
-    return { bank: r.bank, slug, count: r.count };
+    return { bank: r.bank as string, slug, count: r.count as number };
   });
 }
 
-export function getBankBySlug(slug: string): string | null {
-  const banks = getAllBanks();
+export async function getBankBySlug(slug: string): Promise<string | null> {
+  const banks = await getAllBanks();
   const found = banks.find((b) => b.slug === slug);
   return found ? found.bank : null;
 }
 
-export function getStatesForBank(
-  bankName: string
-): { state: string; count: number }[] {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT state, COUNT(*) as count FROM branches WHERE bank = ? GROUP BY state ORDER BY state"
-  );
-  return stmt.all(bankName) as { state: string; count: number }[];
+export async function getStatesForBank(bankName: string): Promise<{ state: string; count: number }[]> {
+  return (await query(
+    "SELECT state, COUNT(*) as count FROM branches WHERE bank = ? GROUP BY state ORDER BY state",
+    [bankName]
+  )) as unknown as { state: string; count: number }[];
 }
 
-export function getDistrictsForBankState(
-  bankName: string,
-  state: string
-): { district: string; count: number }[] {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT district, COUNT(*) as count FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? GROUP BY district ORDER BY district"
-  );
-  return stmt.all(bankName, state.toLowerCase()) as {
-    district: string;
-    count: number;
-  }[];
+export async function getDistrictsForBankState(bankName: string, state: string): Promise<{ district: string; count: number }[]> {
+  return (await query(
+    "SELECT district, COUNT(*) as count FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? GROUP BY district ORDER BY district",
+    [bankName, state.toLowerCase()]
+  )) as unknown as { district: string; count: number }[];
 }
 
-export function getBranchesForBankStateDistrict(
-  bankName: string,
-  state: string,
-  district: string
-): BankBranch[] {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT * FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? AND LOWER(REPLACE(district, ' ', '-')) = ? ORDER BY branch"
-  );
-  return stmt.all(
-    bankName,
-    state.toLowerCase(),
-    district.toLowerCase()
-  ) as BankBranch[];
+export async function getBranchesForBankStateDistrict(bankName: string, state: string, district: string): Promise<BankBranch[]> {
+  return (await query(
+    "SELECT * FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? AND LOWER(REPLACE(district, ' ', '-')) = ? ORDER BY branch",
+    [bankName, state.toLowerCase(), district.toLowerCase()]
+  )) as unknown as BankBranch[];
 }
 
-export function getStateNameFromSlug(
-  bankName: string,
-  stateSlug: string
-): string | null {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT state FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? LIMIT 1"
+export async function getStateNameFromSlug(bankName: string, stateSlug: string): Promise<string | null> {
+  const row = await querySingle(
+    "SELECT state FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? LIMIT 1",
+    [bankName, stateSlug.toLowerCase()]
   );
-  const row = stmt.get(bankName, stateSlug.toLowerCase()) as {
-    state: string;
-  } | null;
-  return row ? row.state : null;
+  return row ? (row.state as string) : null;
 }
 
-export function getDistrictNameFromSlug(
-  bankName: string,
-  stateSlug: string,
-  districtSlug: string
-): string | null {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT district FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? AND LOWER(REPLACE(district, ' ', '-')) = ? LIMIT 1"
+export async function getDistrictNameFromSlug(bankName: string, stateSlug: string, districtSlug: string): Promise<string | null> {
+  const row = await querySingle(
+    "SELECT district FROM branches WHERE bank = ? AND LOWER(REPLACE(state, ' ', '-')) = ? AND LOWER(REPLACE(district, ' ', '-')) = ? LIMIT 1",
+    [bankName, stateSlug.toLowerCase(), districtSlug.toLowerCase()]
   );
-  const row = stmt.get(
-    bankName,
-    stateSlug.toLowerCase(),
-    districtSlug.toLowerCase()
-  ) as { district: string } | null;
-  return row ? row.district : null;
+  return row ? (row.district as string) : null;
 }
 
-export function getPopularBanks(): {
-  bank: string;
-  slug: string;
-  count: number;
-}[] {
-  const db = getDb();
-  const stmt = db.prepare(
-    "SELECT bank, COUNT(*) as count FROM branches GROUP BY bank ORDER BY count DESC LIMIT 20"
-  );
-  const rows = stmt.all() as { bank: string; count: number }[];
+export async function getPopularBanks(): Promise<{ bank: string; slug: string; count: number }[]> {
+  const rows = await query("SELECT bank, COUNT(*) as count FROM branches GROUP BY bank ORDER BY count DESC LIMIT 20");
   return rows.map((r) => ({
-    bank: r.bank,
-    slug: bankToSlug(r.bank),
-    count: r.count,
+    bank: r.bank as string,
+    slug: bankToSlug(r.bank as string),
+    count: r.count as number,
   }));
 }
 
-export function getTotalStats(): {
-  totalBranches: number;
-  totalBanks: number;
-  totalStates: number;
-} {
-  const db = getDb();
-  const branches = (
-    db.prepare("SELECT COUNT(*) as c FROM branches").get() as { c: number }
-  ).c;
-  const banks = (
-    db.prepare("SELECT COUNT(DISTINCT bank) as c FROM branches").get() as {
-      c: number;
-    }
-  ).c;
-  const states = (
-    db.prepare("SELECT COUNT(DISTINCT state) as c FROM branches").get() as {
-      c: number;
-    }
-  ).c;
-  return { totalBranches: branches, totalBanks: banks, totalStates: states };
+export async function getTotalStats(): Promise<{ totalBranches: number; totalBanks: number; totalStates: number }> {
+  const branches = await querySingle("SELECT COUNT(*) as c FROM branches");
+  const banks = await querySingle("SELECT COUNT(DISTINCT bank) as c FROM branches");
+  const states = await querySingle("SELECT COUNT(DISTINCT state) as c FROM branches");
+  return {
+    totalBranches: (branches?.c as number) || 0,
+    totalBanks: (banks?.c as number) || 0,
+    totalStates: (states?.c as number) || 0,
+  };
 }
 
 export function bankToSlug(bank: string): string {
-  return bank
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
+  return bank.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
 }
 
 export function stateToSlug(state: string): string {
-  return state
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
+  return state.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
 }
 
 export function districtToSlug(district: string): string {
-  return district
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
+  return district.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").trim();
 }
+
+// Export for direct usage in state page
+export { query as rawQuery };

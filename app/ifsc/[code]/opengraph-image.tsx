@@ -12,7 +12,7 @@ export default async function Image({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const branch = searchByIFSC(code);
+  const branch = await searchByIFSC(code);
 
   const bankName = branch?.bank || "Unknown Bank";
   const branchName = branch?.branch || "";

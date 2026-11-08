@@ -34,9 +34,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default function HomePage() {
-  const popularBanks = getPopularBanks();
-  const stats = getTotalStats();
+export default async function HomePage() {
+  const popularBanks = await getPopularBanks();
+  const stats = await getTotalStats();
 
   return (
     <>

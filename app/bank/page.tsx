@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/bank" },
 };
 
-export default function AllBanksPage() {
-  const banks = getAllBanks();
+export default async function AllBanksPage() {
+  const banks = await getAllBanks();
 
   // Group banks by first letter
   const grouped: Record<string, typeof banks> = {};

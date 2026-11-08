@@ -8,8 +8,8 @@ import {
 } from "@/lib/db";
 import { SITE_URL } from "@/lib/constants";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const banks = getAllBanks();
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const banks = await getAllBanks();
 
   const staticPages: MetadataRoute.Sitemap = [
     {
@@ -71,7 +71,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const districtPages: MetadataRoute.Sitemap = [];
 
   for (const bank of topBanks) {
-    const states = getStatesForBank(bank.bank);
+    const states = await getStatesForBank(bank.bank);
     for (const state of states) {
       const stSlug = stateToSlug(state.state);
       statePages.push({
@@ -83,7 +83,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
       // District pages for top 10 banks only (to keep sitemap manageable)
       if (topBanks.indexOf(bank) < 10) {
-        const districts = getDistrictsForBankState(bank.bank, stSlug);
+        const districts = await getDistrictsForBankState(bank.bank, stSlug);
         for (const district of districts) {
           districtPages.push({
             url: `${SITE_URL}/bank/${bank.slug}/${stSlug}/${districtToSlug(district.district)}`,

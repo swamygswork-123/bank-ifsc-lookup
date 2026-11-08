@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [], total: 0 });
   }
 
-  const { results, total } = searchBranches(q, limit, offset);
+  const { results, total } = await searchBranches(q, limit, offset);
 
   return NextResponse.json(
     {

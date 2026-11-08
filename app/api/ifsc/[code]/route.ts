@@ -14,7 +14,7 @@ export async function GET(
     );
   }
 
-  const branch = searchByIFSC(code);
+  const branch = await searchByIFSC(code);
 
   if (!branch) {
     return NextResponse.json(

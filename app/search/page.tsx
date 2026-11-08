@@ -27,7 +27,7 @@ export default async function SearchPage({
   const offset = (page - 1) * limit;
 
   const { results, total } = q
-    ? searchBranches(q, limit, offset)
+    ? await searchBranches(q, limit, offset)
     : { results: [], total: 0 };
   const totalPages = Math.ceil(total / limit);
 

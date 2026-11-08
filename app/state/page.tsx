@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { Metadata } from "next";
 import Link from "next/link";
-import { getDb, getAllBanks, stateToSlug, bankToSlug } from "@/lib/db";
+import { rawQuery, getAllBanks, stateToSlug, bankToSlug } from "@/lib/db";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import AdBanner from "@/components/AdBanner";
 import { MapPin } from "lucide-react";
@@ -28,15 +28,12 @@ interface StateInfo {
   branchCount: number;
 }
 
-export default function StatesPage() {
-  const db = getDb();
-  const states = db
-    .prepare(
-      "SELECT state, COUNT(DISTINCT bank) as bankCount, COUNT(*) as branchCount FROM branches GROUP BY state ORDER BY branchCount DESC"
-    )
-    .all() as StateInfo[];
+export default async function StatesPage() {
+  const states = await rawQuery(
+    "SELECT state, COUNT(DISTINCT bank) as bankCount, COUNT(*) as branchCount FROM branches GROUP BY state ORDER BY branchCount DESC"
+  ) as unknown as StateInfo[];
 
-  const banks = getAllBanks();
+  const banks = await getAllBanks();
   const topBanks = [...banks].sort((a, b) => b.count - a.count).slice(0, 10);
 
   return (

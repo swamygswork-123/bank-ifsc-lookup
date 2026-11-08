@@ -32,7 +32,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { code } = await params;
-  const branch = searchByIFSC(code);
+  const branch = await searchByIFSC(code);
   if (!branch) {
     return { title: `IFSC Code ${code.toUpperCase()} Not Found` };
   }
@@ -79,7 +79,7 @@ export default async function IFSCDetailPage({
   params: Promise<Params>;
 }) {
   const { code } = await params;
-  const branch = searchByIFSC(code);
+  const branch = await searchByIFSC(code);
 
   if (!branch) {
     notFound();
@@ -88,7 +88,7 @@ export default async function IFSCDetailPage({
   const bankName = formatBankName(branch.bank);
   const bankSlug = bankToSlug(branch.bank);
   const stateSlug = stateToSlug(branch.state);
-  const popularBanks = getPopularBanks();
+  const popularBanks = await getPopularBanks();
 
   const breadcrumbItems = [
     { label: "Banks", href: "/bank" },

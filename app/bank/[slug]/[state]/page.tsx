@@ -26,9 +26,9 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug, state } = await params;
-  const bankName = getBankBySlug(slug);
+  const bankName = await getBankBySlug(slug);
   if (!bankName) return { title: "Not Found" };
-  const stateName = getStateNameFromSlug(bankName, state);
+  const stateName = await getStateNameFromSlug(bankName, state);
   if (!stateName) return { title: "Not Found" };
 
   const formatted = formatBankName(bankName);
@@ -45,13 +45,13 @@ export default async function BankStatePage({
   params: Promise<Params>;
 }) {
   const { slug, state } = await params;
-  const bankName = getBankBySlug(slug);
+  const bankName = await getBankBySlug(slug);
   if (!bankName) notFound();
-  const stateName = getStateNameFromSlug(bankName, state);
+  const stateName = await getStateNameFromSlug(bankName, state);
   if (!stateName) notFound();
 
   const formatted = formatBankName(bankName);
-  const districts = getDistrictsForBankState(bankName, state);
+  const districts = await getDistrictsForBankState(bankName, state);
   const totalBranches = districts.reduce((sum, d) => sum + d.count, 0);
 
   const breadcrumbItems = [
