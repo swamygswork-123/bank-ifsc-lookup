@@ -1,5 +1,5 @@
 export const SITE_NAME = "IFSCLookup.in";
-export const SITE_URL = "https://ifsclookup.in";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://bank-ifsc-lookup.vercel.app";
 export const SITE_DESCRIPTION =
   "Find any Indian bank's IFSC code instantly. Search by IFSC code, bank name, branch, or location. Get complete branch details including MICR code, address, and NEFT/RTGS/IMPS/UPI support.";
 export const SITE_TAGLINE = "India's Most Trusted IFSC Code Search Engine";
