@@ -33,8 +33,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# data (large files - generated during build)
-/data/IFSC.csv
+# database (generated during build from CSV)
 /data/ifsc.db
 /data/ifsc.db-shm
 /data/ifsc.db-wal
