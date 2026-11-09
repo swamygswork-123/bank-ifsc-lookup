@@ -71,17 +71,33 @@ export async function searchBranches(
   limit = 20,
   offset = 0
 ): Promise<{ results: BankBranch[]; total: number }> {
-  const searchTerm = `%${q}%`;
-  const params = [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm];
+  // Split query into words — each word must match somewhere in the row
+  const words = q.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) {
+    return { results: [], total: 0 };
+  }
+
+  // For single word, use simple OR across columns
+  // For multiple words, each word must appear in at least one column (AND logic)
+  const conditions = words.map(
+    () => "(ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ? OR address LIKE ?)"
+  );
+  const whereClause = conditions.join(" AND ");
+  const params: unknown[] = [];
+  for (const word of words) {
+    const term = `%${word}%`;
+    params.push(term, term, term, term, term, term);
+  }
 
   const countRow = await querySingle(
-    "SELECT COUNT(*) as total FROM branches WHERE ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ?",
+    `SELECT COUNT(*) as total FROM branches WHERE ${whereClause}`,
     params
   );
   const total = (countRow?.total as number) || 0;
 
   const results = await query(
-    "SELECT * FROM branches WHERE ifsc LIKE ? OR bank LIKE ? OR branch LIKE ? OR district LIKE ? OR city LIKE ? ORDER BY bank, state, district LIMIT ? OFFSET ?",
+    `SELECT * FROM branches WHERE ${whereClause} ORDER BY bank, state, district LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
 
