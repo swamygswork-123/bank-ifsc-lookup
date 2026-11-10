@@ -19,6 +19,7 @@ interface BranchResult {
 }
 
 export default function DropdownSearch() {
+  const [popularBanks, setPopularBanks] = useState<string[]>([]);
   const [banks, setBanks] = useState<string[]>([]);
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
@@ -42,7 +43,10 @@ export default function DropdownSearch() {
   useEffect(() => {
     fetch("/api/banks")
       .then((r) => r.json())
-      .then((data) => setBanks(data))
+      .then((data) => {
+        setPopularBanks(data.popular || []);
+        setBanks(data.all || []);
+      })
       .finally(() => setLoadingBanks(false));
 
     fetch("/api/states")
@@ -137,6 +141,7 @@ export default function DropdownSearch() {
           label="Bank"
           placeholder="Select Bank..."
           options={banks}
+          popularOptions={popularBanks}
           value={selectedBank}
           onChange={handleBankChange}
           loading={loadingBanks}

@@ -6,6 +6,7 @@ interface SearchableDropdownProps {
   label: string;
   placeholder: string;
   options: string[];
+  popularOptions?: string[];
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
@@ -16,6 +17,7 @@ export default function SearchableDropdown({
   label,
   placeholder,
   options,
+  popularOptions,
   value,
   onChange,
   disabled = false,
@@ -24,7 +26,6 @@ export default function SearchableDropdown({
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -36,9 +37,13 @@ export default function SearchableDropdown({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const filtered = options.filter((opt) =>
-    opt.toLowerCase().includes(filter.toLowerCase())
-  );
+  const isSearching = filter.length > 0;
+
+  // When searching, filter across all options (popular + rest)
+  const allOptions = popularOptions ? [...popularOptions, ...options] : options;
+  const filtered = isSearching
+    ? allOptions.filter((opt) => opt.toLowerCase().includes(filter.toLowerCase()))
+    : [];
 
   const displayValue = value || "";
 
@@ -53,7 +58,6 @@ export default function SearchableDropdown({
         } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
         <input
-          ref={inputRef}
           type="text"
           value={open ? filter : displayValue}
           onChange={(e) => {
@@ -71,7 +75,6 @@ export default function SearchableDropdown({
           className="w-full bg-transparent px-4 py-3 text-sm text-gray-800 placeholder-gray-400 outline-none rounded-xl"
           autoComplete="off"
         />
-        {/* Clear button */}
         {value && !disabled && (
           <button
             type="button"
@@ -88,7 +91,6 @@ export default function SearchableDropdown({
             </svg>
           </button>
         )}
-        {/* Chevron */}
         <svg
           className={`absolute right-3 h-4 w-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 24 24"
@@ -100,33 +102,65 @@ export default function SearchableDropdown({
         </svg>
       </div>
 
-      {/* Dropdown list */}
       {open && !disabled && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-200 max-h-60 overflow-y-auto z-50">
           {loading ? (
             <div className="px-4 py-3 text-sm text-gray-400">Loading...</div>
-          ) : filtered.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-gray-400">No results found</div>
+          ) : isSearching ? (
+            // Show filtered results when typing
+            filtered.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-400">No results found</div>
+            ) : (
+              filtered.slice(0, 100).map((opt) => (
+                <OptionButton key={opt} opt={opt} value={value} onSelect={(v) => { onChange(v); setFilter(""); setOpen(false); }} />
+              ))
+            )
           ) : (
-            filtered.slice(0, 100).map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => {
-                  onChange(opt);
-                  setFilter("");
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors ${
-                  opt === value ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"
-                }`}
-              >
-                {opt}
-              </button>
-            ))
+            // Show popular + all when not typing
+            <>
+              {popularOptions && popularOptions.length > 0 && (
+                <>
+                  <div className="px-4 py-2 text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 border-b border-blue-100 sticky top-0">
+                    Popular Banks
+                  </div>
+                  {popularOptions.map((opt) => (
+                    <OptionButton key={`pop-${opt}`} opt={opt} value={value} highlight onSelect={(v) => { onChange(v); setFilter(""); setOpen(false); }} />
+                  ))}
+                  <div className="px-4 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider bg-gray-50 border-y border-gray-100 sticky top-0">
+                    All Banks
+                  </div>
+                </>
+              )}
+              {options.slice(0, 100).map((opt) => (
+                <OptionButton key={opt} opt={opt} value={value} onSelect={(v) => { onChange(v); setFilter(""); setOpen(false); }} />
+              ))}
+              {options.length > 100 && (
+                <div className="px-4 py-2.5 text-xs text-gray-400 text-center">
+                  Type to search {options.length - 100}+ more...
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function OptionButton({ opt, value, highlight, onSelect }: { opt: string; value: string; highlight?: boolean; onSelect: (v: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(opt)}
+      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors ${
+        opt === value
+          ? "bg-blue-50 text-blue-700 font-medium"
+          : highlight
+            ? "text-gray-800 font-medium"
+            : "text-gray-700"
+      }`}
+    >
+      {opt}
+    </button>
   );
 }
