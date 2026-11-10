@@ -113,17 +113,14 @@ export default function DropdownSearch() {
     setResults([]);
     setSearched(true);
 
-    const parts: string[] = [];
-    if (selectedBank) parts.push(selectedBank);
-    if (selectedState) parts.push(selectedState);
-    if (selectedDistrict) parts.push(selectedDistrict);
-    if (selectedBranch) parts.push(selectedBranch);
-    const q = parts.join(" ");
+    const params = new URLSearchParams();
+    if (selectedBank) params.set("bank", selectedBank);
+    if (selectedState) params.set("state", selectedState);
+    if (selectedDistrict) params.set("district", selectedDistrict);
+    if (selectedBranch) params.set("branch", selectedBranch);
 
     try {
-      const res = await fetch(
-        `/api/search?q=${encodeURIComponent(q)}&limit=50`
-      );
+      const res = await fetch(`/api/filter?${params}`);
       const data = await res.json();
       setResults(data.results || []);
     } catch {
