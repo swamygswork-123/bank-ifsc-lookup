@@ -19,30 +19,39 @@ interface BranchResult {
 }
 
 export default function DropdownSearch() {
+  const [banks, setBanks] = useState<string[]>([]);
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
 
+  const [selectedBank, setSelectedBank] = useState("");
   const [selectedState, setSelectedState] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
 
+  const [loadingBanks, setLoadingBanks] = useState(true);
   const [loadingStates, setLoadingStates] = useState(true);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
 
   const [results, setResults] = useState<BranchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
 
-  // Load states on mount
+  // Load banks and states on mount
   useEffect(() => {
+    fetch("/api/banks")
+      .then((r) => r.json())
+      .then((data) => setBanks(data))
+      .finally(() => setLoadingBanks(false));
+
     fetch("/api/states")
       .then((r) => r.json())
       .then((data) => setStates(data))
       .finally(() => setLoadingStates(false));
   }, []);
 
-  // Load districts when state changes
+  // When bank or state changes → reload districts
   useEffect(() => {
     if (!selectedState) {
       setDistricts([]);
@@ -55,13 +64,17 @@ export default function DropdownSearch() {
     setSelectedDistrict("");
     setBranches([]);
     setSelectedBranch("");
-    fetch(`/api/districts?state=${encodeURIComponent(selectedState)}`)
+
+    const params = new URLSearchParams({ state: selectedState });
+    if (selectedBank) params.set("bank", selectedBank);
+
+    fetch(`/api/districts?${params}`)
       .then((r) => r.json())
       .then((data) => setDistricts(data))
       .finally(() => setLoadingDistricts(false));
-  }, [selectedState]);
+  }, [selectedState, selectedBank]);
 
-  // Load branches when district changes
+  // When district changes → reload branches
   useEffect(() => {
     if (!selectedState || !selectedDistrict) {
       setBranches([]);
@@ -70,20 +83,35 @@ export default function DropdownSearch() {
     }
     setLoadingBranches(true);
     setSelectedBranch("");
-    fetch(
-      `/api/branches?state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}`
-    )
+
+    const params = new URLSearchParams({ state: selectedState, district: selectedDistrict });
+    if (selectedBank) params.set("bank", selectedBank);
+
+    fetch(`/api/branches?${params}`)
       .then((r) => r.json())
       .then((data) => setBranches(data))
       .finally(() => setLoadingBranches(false));
-  }, [selectedState, selectedDistrict]);
+  }, [selectedState, selectedDistrict, selectedBank]);
+
+  // When bank changes, reset downstream if they don't apply
+  const handleBankChange = (val: string) => {
+    setSelectedBank(val);
+    // Reset district and branch since options will change
+    setSelectedDistrict("");
+    setSelectedBranch("");
+    setResults([]);
+    setSearched(false);
+  };
 
   const handleSearch = async () => {
-    if (!selectedState) return;
+    if (!selectedState && !selectedBank) return;
     setSearching(true);
     setResults([]);
+    setSearched(true);
 
-    const parts = [selectedState];
+    const parts: string[] = [];
+    if (selectedBank) parts.push(selectedBank);
+    if (selectedState) parts.push(selectedState);
     if (selectedDistrict) parts.push(selectedDistrict);
     if (selectedBranch) parts.push(selectedBranch);
     const q = parts.join(" ");
@@ -104,7 +132,15 @@ export default function DropdownSearch() {
   return (
     <div>
       {/* Dropdowns */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <SearchableDropdown
+          label="Bank"
+          placeholder="Select Bank..."
+          options={banks}
+          value={selectedBank}
+          onChange={handleBankChange}
+          loading={loadingBanks}
+        />
         <SearchableDropdown
           label="State"
           placeholder="Select State..."
@@ -137,7 +173,7 @@ export default function DropdownSearch() {
       <button
         type="button"
         onClick={handleSearch}
-        disabled={!selectedState || searching}
+        disabled={(!selectedState && !selectedBank) || searching}
         className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-8 py-3 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2"
       >
         {searching ? (
@@ -165,6 +201,7 @@ export default function DropdownSearch() {
           <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
             <p className="text-sm font-semibold text-gray-700">
               Found {results.length} branches
+              {selectedBank && ` — ${selectedBank}`}
               {selectedState && ` in ${selectedState}`}
               {selectedDistrict && ` > ${selectedDistrict}`}
               {selectedBranch && ` > ${selectedBranch}`}
@@ -183,7 +220,7 @@ export default function DropdownSearch() {
               <tbody className="divide-y divide-gray-100">
                 {results.map((r) => (
                   <tr key={r.ifsc} className="hover:bg-blue-50/50 transition-colors">
-                    <td className="px-4 py-2.5 text-gray-800 font-medium">{r.bank}</td>
+                    <td className="px-4 py-2.5 text-gray-800 font-medium text-xs">{r.bank}</td>
                     <td className="px-4 py-2.5">
                       <a
                         href={`/ifsc/${r.ifsc}`}
@@ -202,9 +239,9 @@ export default function DropdownSearch() {
         </div>
       )}
 
-      {searching === false && results.length === 0 && selectedState && (
-        <div className="mt-6 text-center text-gray-400 text-sm py-4">
-          Select filters above and click &quot;Find IFSC Codes&quot;
+      {searched && !searching && results.length === 0 && (
+        <div className="mt-6 text-center text-gray-500 text-sm py-6 bg-white rounded-xl border border-gray-200">
+          No results found. Try adjusting your filters.
         </div>
       )}
     </div>
