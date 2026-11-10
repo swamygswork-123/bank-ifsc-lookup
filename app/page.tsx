@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import SearchBox from "@/components/SearchBox";
+import DropdownSearch from "@/components/DropdownSearch";
 import PopularBanks from "@/components/PopularBanks";
 import FAQSection from "@/components/FAQSection";
 import AdBanner from "@/components/AdBanner";
@@ -100,6 +101,19 @@ export default async function HomePage() {
               <p className="text-sm text-gray-600">States &amp; UTs</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Dropdown Search Section */}
+      <section className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">
+            Search by State, District &amp; Branch
+          </h2>
+          <p className="text-gray-500 text-center mb-6 text-sm">
+            Use dropdowns to narrow down and find the exact IFSC code
+          </p>
+          <DropdownSearch />
         </div>
       </section>
 
